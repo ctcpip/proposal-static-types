@@ -1,61 +1,158 @@
-# template-for-proposals
+# Static Types
 
-A repository template for ECMAScript proposals.
+static types for JavaScript
 
-## Before creating a proposal
+## Status
 
-Please ensure the following:
-  1. You have read the [process document](https://tc39.github.io/process-document/)
-  1. You have reviewed the [existing proposals](https://github.com/tc39/proposals/)
-  1. You are aware that your proposal requires being a member of TC39, or locating a TC39 delegate to "champion" your proposal
+Stage: 0
 
-## Create your proposal repo
+Champions:
 
-Follow these steps:
-  1. Click the green ["use this template"](https://github.com/tc39/template-for-proposals/generate) button in the repo header. (Note: Do not fork this repo in GitHub's web interface, as that will later prevent transfer into the TC39 organization)
-  1. Update the biblio to the latest version: `npm install --save-dev --save-exact @tc39/ecma262-biblio@latest`.
-  1. Go to your repo settings “Options” page, under “GitHub Pages”, and set the source to the **main branch** under the root (and click Save, if it does not autosave this setting)
-      1. check "Enforce HTTPS"
-      1. On "Options", under "Features", Ensure "Issues" is checked, and disable "Wiki", and "Projects" (unless you intend to use Projects)
-      1. Under "Merge button", check "automatically delete head branches"
-<!--
-  1. Avoid merge conflicts with build process output files by running:
-      ```sh
-      git config --local --add merge.output.driver true
-      git config --local --add merge.output.driver true
-      ```
-  1. Add a post-rewrite git hook to auto-rebuild the output on every commit:
-      ```sh
-      cp hooks/post-rewrite .git/hooks/post-rewrite
-      chmod +x .git/hooks/post-rewrite
-      ```
--->
-  3. ["How to write a good explainer"][explainer] explains how to make a good first impression.
+- Chris de Almeida ([@ctcpip](https://github.com/ctcpip))
 
-      > Each TC39 proposal should have a `README.md` file which explains the purpose
-      > of the proposal and its shape at a high level.
-      >
-      > ...
-      >
-      > The rest of this page can be used as a template ...
+## Motivation
 
-      Your explainer can point readers to the `index.html` generated from `spec.emu`
-      via markdown like
+dynamic typing is great for some use cases:
 
-      ```markdown
-      You can browse the [ecmarkup output](https://ACCOUNT.github.io/PROJECT/)
-      or browse the [source](https://github.com/ACCOUNT/PROJECT/blob/HEAD/spec.emu).
-      ```
+```js
+let stringOrNumber = 42;
+// => 42
+typeof stringOrNumber;
+// => 'number'
 
-      where *ACCOUNT* and *PROJECT* are the first two path elements in your project's Github URL.
-      For example, for github.com/**tc39**/**template-for-proposals**, *ACCOUNT* is "tc39"
-      and *PROJECT* is "template-for-proposals".
+stringOrNumber = "forty-two";
+// => "forty-two"
+typeof stringOrNumber;
+// => 'string'
 
+stringOrNumber += 3;
+// => "forty-five"
+typeof stringOrNumber;
+// => 'string'
 
-## Maintain your proposal repo
+stringOrNumber = Number(stringOrNumber)
+// => 45
+typeof stringOrNumber;
+// => 'number'
 
-  1. Make your changes to `spec.emu` (ecmarkup uses HTML syntax, but is not HTML, so I strongly suggest not naming it ".html")
-  1. Any commit that makes meaningful changes to the spec, should run `npm run build` and commit the resulting output.
-  1. Whenever you update `ecmarkup`, run `npm run build` and commit any changes that come from that dependency.
+stringOrNumber -= 3;
+// => 42
+```
 
-  [explainer]: https://github.com/tc39/how-we-work/blob/HEAD/explainer.md
+but sometimes we want to limit our variables to one data type only, which we can't do today.  to accomplish this, this proposal adds static type keywords to JavaScript:
+
+| data type | possible values | default value |
+|---|---|---|
+| `byte` | integral numbers `-128` to `127` | `1` |
+| `int` | integral numbers `-2,147,483,648` to `2,147,483,647` | `1` |
+| `boo` | `true` or `false`, but never both | `true` |
+| `Object` | same as `object` | `{ true: true }`  |
+| `String` | zero or more characters | `" "` |
+| `¿String?` | `null`, or one or more characters, but can't be empty string | `" "` |
+
+notes:
+
+- the default values of all these types are truthy, because we need more positivity in this world.
+- use of the `¿String?` type is generally discouraged due to negativity (and greater risk for falsiness) but is provided as a convenience for the haters.
+- fractional numeric and other types are beyond the scope of this proposal.
+- values can never be `null` or `undefined` except `¿String?` which can be `null` if you want to be a hater.
+
+let's see this in action:
+
+### `byte` and `int`
+
+```js
+
+// instantiate
+byte b;
+// => 1
+typeof b;
+// => 'byte'
+
+// compare
+let num = 1;
+b == num;
+// => true
+b === num;
+// => false
+
+// assign
+b = 'byte me';
+// => Uncaught TypeError: can't reassign type `byte` to type `String`
+b = 333;
+// => Uncaught RangeError: don't byte off more than you can chew; 333 is out of range for type `byte`
+
+// implicit casting is permitted:
+int i = 333;
+// => 333
+i = b;
+// => 1
+typeof i;
+// => 'int'
+```
+
+### `String` and `¿String?`
+
+```js
+String s;
+// => " "
+typeof s;
+// => 'String'
+
+let yee = 'yee';
+if(s) { console.info(yee); }
+// => yee
+
+// implicit casting is permitted:
+s = yee;
+s == yee;
+// => true
+s === yee;
+// => false
+
+¿String? letTheHateFlow;
+// => null
+typeof letTheHateFlow;
+// => '¿String?'
+letTheHateFlow = "";
+// => Uncaught RangeError: absolutely not. stop that.
+```
+
+### `Object` and `boo`
+
+```js
+Object o;
+// => { true: true }
+typeof o;
+// => 'Object'
+o.true = false;
+// => { true: false }
+typeof o.true;
+// => 'boo'
+
+boo b;
+// => true
+typeof b;
+// => 'boo'
+
+let c = true;
+typeof c;
+// => 'boolean'
+
+b == c;
+// => true
+b === c;
+// => false
+
+o.b = b;
+o.c = c;
+
+o;
+// => { true: false, b: true, c: false }
+typeof o.true;
+// => 'boo'
+typeof o.b;
+// => 'boo'
+typeof o.c;
+// => 'boolean'
+```
